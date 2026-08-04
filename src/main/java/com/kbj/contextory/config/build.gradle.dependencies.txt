@@ -1,0 +1,20 @@
+// 유지
+implementation 'org.springframework.boot:spring-boot-starter-web'
+implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+implementation 'org.springframework.boot:spring-boot-starter-security'
+implementation 'org.springframework.boot:spring-boot-starter-validation'
+runtimeOnly 'org.postgresql:postgresql'
+
+// 추가: Spring Security가 Bearer JWT 검증을 담당
+implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
+// 기존 Swagger를 사용하는 경우
+implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17'
+
+// 기존 DotEnvConfig를 그대로 유지할 경우
+implementation 'io.github.cdimascio:dotenv-java:3.2.0'
+
+// 삭제: Resource Server로 교체되므로 JJWT 의존성 제거
+// implementation 'io.jsonwebtoken:jjwt-api:...'
+// runtimeOnly 'io.jsonwebtoken:jjwt-impl:...'
+// runtimeOnly 'io.jsonwebtoken:jjwt-jackson:...'
