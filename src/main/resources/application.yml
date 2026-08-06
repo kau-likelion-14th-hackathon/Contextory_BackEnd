@@ -61,7 +61,27 @@ logging:
     org.hibernate.SQL: debug
     org.hibernate.type.descriptor.sql.BasicBinder: trace
 
+# JWT
 jwt:
   secret: ${JWT_SECRET}
   access-exp-ms: ${JWT_EXPIRATION:3600000}
   refresh-exp-ms: ${JWT_REFRESH_EXPIRATION:1209600000}
+
+# Github
+github:
+  app:
+    slug: ${GITHUB_APP_SLUG}
+    client-id: ${GITHUB_CLIENT_ID}
+    client-secret: ${GITHUB_CLIENT_SECRET}
+    callback-url: ${GITHUB_CALLBACK_URL:http://localhost:8080/api/github/callback}
+    install-base-url: ${GITHUB_INSTALL_BASE_URL:https://github.com/apps}
+
+  oauth:
+    base-url: ${GITHUB_OAUTH_BASE_URL:https://github.com}
+    state-expiration: ${GITHUB_OAUTH_STATE_EXPIRATION:10m}
+
+  api:
+    base-url: ${GITHUB_API_BASE_URL:https://api.github.com}
+    version: ${GITHUB_API_VERSION:2026-03-10}
+
+  token-encryption-key: ${GITHUB_TOKEN_ENCRYPTION_KEY}
