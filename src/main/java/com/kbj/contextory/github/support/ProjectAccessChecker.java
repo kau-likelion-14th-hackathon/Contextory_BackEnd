@@ -2,17 +2,21 @@ package com.kbj.contextory.github.support;
 
 import com.kbj.contextory.global.api.ErrorCode;
 import com.kbj.contextory.global.exception.GeneralException;
+import com.kbj.contextory.project.domain.Project;
+import com.kbj.contextory.project.domain.ProjectMemberStatus;
+import com.kbj.contextory.project.domain.ProjectPermissionRole;
+import com.kbj.contextory.project.domain.ProjectStatus;
+import com.kbj.contextory.project.repository.ProjectJpaRepository;
+import com.kbj.contextory.project.repository.ProjectMemberJpaRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
-
-import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
 public class ProjectAccessChecker {
 
-    private final JdbcClient jdbcClient;
+    private final ProjectJpaRepository projectRepository;
+    private final ProjectMemberJpaRepository projectMemberRepository;
 
     public void requireMember(Long projectId, Long userId) {
         ProjectPermissionRole role = getRole(projectId, userId);
@@ -29,60 +33,31 @@ public class ProjectAccessChecker {
         }
     }
 
-    private ProjectPermissionRole getRole(Long projectId, Long userId) {
-        boolean projectExists = jdbcClient.sql("""
-                        SELECT EXISTS (
-                            SELECT 1
-                            FROM projects
-                            WHERE project_id = :projectId
-                              AND status <> 'DELETED'
-                        )
-                        """)
-                .param("projectId", projectId)
-                .query(Boolean.class)
-                .single();
-
-        if (!projectExists) {
-            throw GeneralException.of(ErrorCode.PROJECT_NOT_FOUND);
+    public void requireOwner(Long projectId, Long userId) {
+        ProjectPermissionRole role = getRole(projectId, userId);
+        if (role != ProjectPermissionRole.OWNER) {
+            throw GeneralException.of(ErrorCode.PROJECT_OWNER_REQUIRED);
         }
+    }
 
-        boolean owner = jdbcClient.sql("""
-                        SELECT EXISTS (
-                            SELECT 1
-                            FROM projects
-                            WHERE project_id = :projectId
-                              AND owner_id = :userId
-                              AND status <> 'DELETED'
-                        )
-                        """)
-                .param("projectId", projectId)
-                .param("userId", userId)
-                .query(Boolean.class)
-                .single();
+    public ProjectPermissionRole getRole(Long projectId, Long userId) {
+        Project project = projectRepository.findById(projectId)
+                .filter(found -> found.getStatus() != ProjectStatus.DELETED)
+                .orElseThrow(() -> GeneralException.of(
+                        ErrorCode.PROJECT_NOT_FOUND
+                ));
 
-        if (owner) {
+        if (project.getOwnerId().equals(userId)) {
             return ProjectPermissionRole.OWNER;
         }
 
-        Optional<String> role = jdbcClient.sql("""
-                        SELECT permission_role
-                        FROM project_members
-                        WHERE project_id = :projectId
-                          AND user_id = :userId
-                          AND status = 'ACTIVE'
-                        """)
-                .param("projectId", projectId)
-                .param("userId", userId)
-                .query(String.class)
-                .optional();
-
-        return role.map(ProjectPermissionRole::valueOf).orElse(null);
-    }
-
-    private enum ProjectPermissionRole {
-        OWNER,
-        ADMIN,
-        MEMBER,
-        VIEWER
+        return projectMemberRepository
+                .findByProjectIdAndUserIdAndStatus(
+                        projectId,
+                        userId,
+                        ProjectMemberStatus.ACTIVE
+                )
+                .map(member -> member.getPermissionRole())
+                .orElse(null);
     }
 }
