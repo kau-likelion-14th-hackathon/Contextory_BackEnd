@@ -27,6 +27,10 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private String username;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserRole role;
+
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private RefreshToken refreshToken;
 
@@ -46,16 +50,23 @@ public class User extends BaseEntity {
     private String salt;
 
     @Builder(access = AccessLevel.PUBLIC)
-    private User (String username, String loginId, String providerId, String introduction, String password, String salt){
+    private User(String username, String loginId, String providerId,
+                 String introduction, String password, String salt) {
         this.username = username;
         this.loginId = loginId;
         this.providerId = providerId;
         this.introduction = introduction;
         this.password = password;
         this.salt = salt;
+        this.role = UserRole.USER;
     }
 
-    public void updateIntroduction(String introduction){
-        this.introduction = introduction;
+    public void updateProfile(String username, String introduction) {
+        if (username != null) this.username = username;
+        if (introduction != null) this.introduction = introduction;
+    }
+
+    public void changeRole(UserRole role) {
+        this.role = role;
     }
 }
