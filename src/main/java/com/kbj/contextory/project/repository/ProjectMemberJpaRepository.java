@@ -16,10 +16,32 @@ public interface ProjectMemberJpaRepository
             ProjectMemberStatus status
     );
 
+    Optional<ProjectMember> findByProjectIdAndUserId(
+            Long projectId,
+            Long userId
+    );
+
     List<ProjectMember> findAllByUserIdAndStatus(
             Long userId,
             ProjectMemberStatus status
     );
 
+    List<ProjectMember> findAllByProjectIdAndStatusOrderByProjectMemberIdAsc(
+            Long projectId,
+            ProjectMemberStatus status
+    );
+
+    Optional<ProjectMember> findByProjectIdAndProjectMemberIdAndStatus(
+            Long projectId,
+            Long projectMemberId,
+            ProjectMemberStatus status
+    );
+
     boolean existsByProjectIdAndUserId(Long projectId, Long userId);
+
+    boolean existsByProjectIdAndUserIdAndStatus(
+            Long projectId,
+            Long userId,
+            ProjectMemberStatus status
+    );
 }

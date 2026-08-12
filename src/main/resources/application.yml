@@ -5,14 +5,12 @@ spring:
   application:
     name: contextory
 
-  # Database
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/contextory}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
-  # JPA & Hibernate
   jpa:
     hibernate:
       ddl-auto: update
@@ -43,7 +41,20 @@ spring:
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
 
-# AWS
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    default-encoding: UTF-8
+    properties:
+      "[mail.smtp.auth]": true
+      "[mail.smtp.starttls.enable]": true
+      "[mail.smtp.starttls.required]": true
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 5000
+      "[mail.smtp.writetimeout]": 5000
+
 cloud:
   aws:
     credentials:
@@ -55,19 +66,16 @@ cloud:
       path:
         location: ${AWS_S3_PATH_LOCATION:static}
 
-# Logging
 logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.type.descriptor.sql.BasicBinder: trace
 
-# JWT
 jwt:
   secret: ${JWT_SECRET}
   access-exp-ms: ${JWT_EXPIRATION:3600000}
   refresh-exp-ms: ${JWT_REFRESH_EXPIRATION:1209600000}
 
-# Github
 github:
   app:
     slug: ${GITHUB_APP_SLUG}
@@ -85,3 +93,8 @@ github:
     version: ${GITHUB_API_VERSION:2026-03-10}
 
   token-encryption-key: ${GITHUB_TOKEN_ENCRYPTION_KEY}
+
+contextory:
+  invitation:
+    accept-url: ${INVITATION_ACCEPT_URL:http://localhost:3000/invitations/accept}
+    mail-from: ${MAIL_FROM:${MAIL_USERNAME}}
