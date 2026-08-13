@@ -75,6 +75,27 @@ public class ProjectMember {
                 .build();
     }
 
+    public void update(ProjectPermissionRole permissionRole, String projectRole) {
+        if (permissionRole != null) {
+            this.permissionRole = permissionRole;
+        }
+
+        if (projectRole != null) {
+            this.projectRole = projectRole;
+        }
+    }
+
+    public void leave() {
+        this.status = ProjectMemberStatus.LEFT;
+    }
+
+    public void reactivate(ProjectPermissionRole permissionRole, String projectRole) {
+        this.permissionRole = permissionRole;
+        this.projectRole = projectRole;
+        this.status = ProjectMemberStatus.ACTIVE;
+        this.joinedAt = Instant.now();
+    }
+
     @PrePersist
     private void onCreate() {
         Instant now = Instant.now();
