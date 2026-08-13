@@ -39,6 +39,8 @@ public enum ErrorCode implements BaseCode { // 실패
     PROJECT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PROJECT_4031", "프로젝트 접근 권한이 없습니다."),
     PROJECT_ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "PROJECT_4032", "프로젝트 OWNER 또는 ADMIN 권한이 필요합니다."),
     PROJECT_REPOSITORY_NOT_CONNECTED(HttpStatus.NOT_FOUND, "PROJECT_REPOSITORY_4041", "프로젝트에 연결된 GitHub 저장소가 없습니다."),
+    PROJECT_OWNER_REQUIRED(HttpStatus.FORBIDDEN, "PROJECT_4033", "프로젝트 OWNER 권한이 필요합니다."),
+    PROJECT_SLUG_DUPLICATED(HttpStatus.CONFLICT, "PROJECT_4091", "이미 사용 중인 프로젝트 slug입니다."),
 
     // GitHub
     GITHUB_CONNECTION_REQUIRED(HttpStatus.UNAUTHORIZED, "GITHUB_4011", "GitHub 연결 또는 Access Token 설정이 필요합니다."),
