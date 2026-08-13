@@ -1,14 +1,10 @@
 package com.kbj.contextory.login.jwt;
 
+import com.kbj.contextory.user.domain.UserRole;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -36,29 +32,33 @@ public class JwtProvider {
         this.refreshExpMs = refreshExpMs;
     }
 
-    public String createAccessToken(Long userId) {
-        return createToken(userId, accessExpMs, "ACCESS");
-    }
-
-    public String createRefreshToken(Long userId) {
-        return createToken(userId, refreshExpMs, "REFRESH");
-    }
-
-    private String createToken(Long userId, long expMs, String type) {
+    public String createAccessToken(Long userId, UserRole role) {
         Instant now = Instant.now();
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .subject(String.valueOf(userId))
                 .issuedAt(now)
-                .expiresAt(now.plusMillis(expMs))
-                .claim("type", type)
+                .expiresAt(now.plusMillis(accessExpMs))
+                .claim("type", "ACCESS")
+                .claim("role", role.name())
                 .build();
 
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
+        return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+    }
 
-        return jwtEncoder.encode(
-                JwtEncoderParameters.from(header, claims)
-        ).getTokenValue();
+    public String createRefreshToken(Long userId) {
+        Instant now = Instant.now();
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .subject(String.valueOf(userId))
+                .issuedAt(now)
+                .expiresAt(now.plusMillis(refreshExpMs))
+                .claim("type", "REFRESH")
+                .build();
+
+        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
+        return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
 
     public Long getRefreshTokenExpiration() {
