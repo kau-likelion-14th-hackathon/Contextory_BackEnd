@@ -45,7 +45,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**",
                                 "/health",
-                                "/error"
+                                "/error",
+                                "/api/github/callback"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
