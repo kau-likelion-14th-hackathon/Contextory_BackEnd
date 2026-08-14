@@ -31,6 +31,10 @@ public class SwaggerConfig {
                         .scheme("bearer")
                         .bearerFormat("JWT"));
 
+        Server deployedServer = new Server()
+                .url("http://contextory-alb-1083598401.ap-northeast-2.elb.amazonaws.com")
+                .description("Contextory AWS Server");
+
         Server localServer = new Server()
                 .url("http://localhost:8080")
                 .description("Contextory Local Server");
@@ -39,7 +43,7 @@ public class SwaggerConfig {
                 .info(apiInfo)
                 .addSecurityItem(securityRequirement)
                 .components(components)
-                .servers(List.of(localServer));
+                .servers(List.of(deployedServer, localServer));
     }
 
     @Bean
