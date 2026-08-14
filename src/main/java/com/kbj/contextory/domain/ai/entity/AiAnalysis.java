@@ -107,17 +107,19 @@ public class AiAnalysis {
         this.startedAt = LocalDateTime.now();
     }
 
-    // Callback 성공 시 DB 갱신 (jobId도 함께 업데이트)
-    public void complete(String fastapiJobId, String resultJson) {
+    // 성공 처리 (modelName 추가 반영)
+    public void complete(String fastapiJobId, String modelName, String resultJson) {
         this.fastapiJobId = fastapiJobId;
+        this.modelName = modelName;
         this.analysisStatus = AnalysisStatus.COMPLETED;
         this.resultJson = resultJson;
         this.completedAt = LocalDateTime.now();
     }
 
-    // Callback 실패 시 DB 갱신
-    public void fail(String fastapiJobId, String errorMessage) {
+    // 실패 처리
+    public void fail(String fastapiJobId, String modelName, String errorMessage) {
         this.fastapiJobId = fastapiJobId;
+        this.modelName = modelName;
         this.analysisStatus = AnalysisStatus.FAILED;
         this.errorMessage = errorMessage;
         this.completedAt = LocalDateTime.now();
