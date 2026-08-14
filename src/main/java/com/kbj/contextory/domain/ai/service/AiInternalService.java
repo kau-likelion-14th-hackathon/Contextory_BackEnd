@@ -2,6 +2,8 @@ package com.kbj.contextory.domain.ai.service;
 
 import com.kbj.contextory.domain.ai.dto.request.FastApiCallbackRequestDto;
 import com.kbj.contextory.domain.ai.dto.response.FastApiJobStatusResponseDto;
+import com.kbj.contextory.domain.ai.entity.AiAnalysis;
+import com.kbj.contextory.domain.ai.repository.AiAnalysisRepository;
 import com.kbj.contextory.global.client.FastApiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AiInternalService {
 
     private final FastApiClient fastApiClient;
+    private final AiAnalysisRepository aiAnalysisRepository;
 
     /**
      * FastAPI 분석 작업 상태 보조 조회
@@ -24,27 +27,28 @@ public class AiInternalService {
     }
 
     /**
-     * FastAPI 분석 완료/실패 Callback 처리
+     * FastAPI 분석 완료/실패 Callback 처리 (DB 상태 갱신)
      */
     @Transactional
     public void processCallback(Long analysisId, FastApiCallbackRequestDto callbackDto) {
-        log.info("FastAPI Callback 수신 - analysisId: {}, status: {}", analysisId, callbackDto.getStatus());
+        log.info("FastAPI Callback 수신 - analysisId: {}, jobId: {}, status: {}",
+                analysisId, callbackDto.getJobId(), callbackDto.getStatus());
+
+        AiAnalysis analysis = aiAnalysisRepository.findById(analysisId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 분석 요청 레코드를 찾을 수 없습니다. id=" + analysisId));
 
         if ("FAILED".equalsIgnoreCase(callbackDto.getStatus())) {
-            log.warn("분석 실패 수신. 크레딧 환불(REFUND)을 진행합니다. 사유: {}", callbackDto.getErrorMessage());
-            refundCredit(analysisId, callbackDto.getErrorMessage());
+            analysis.fail(callbackDto.getJobId(), callbackDto.getErrorMessage());
+            refundCredit(analysis, callbackDto.getErrorMessage());
             return;
         }
 
-        // 성공 처리 및 결과 저장
-        saveAnalysisResult(analysisId, callbackDto);
+        // 성공 처리: status, fastapi_job_id, result_json 한 번에 갱신
+        analysis.complete(callbackDto.getJobId(), callbackDto.getResultSummary());
     }
 
-    private void refundCredit(Long analysisId, String errorMessage) {
-        // TODO: analysisId로 유저/프로젝트를 조회하여 차감했던 크레딧 REFUND 처리
-    }
-
-    private void saveAnalysisResult(Long analysisId, FastApiCallbackRequestDto callbackDto) {
-        // TODO: DB의 분석 결과(Analysis Entity) 상태를 COMPLETED로 변경하고 결과 요약 저장
+    private void refundCredit(AiAnalysis analysis, String errorMessage) {
+        // TODO: credit_transactions 테이블 연동하여 analysis.getCreditUsed() 만큼 환불 INSERT
+        log.info("Credit 환불 처리 대상 - userId: {}, refundAmount: {}", analysis.getRequestedBy(), analysis.getCreditUsed());
     }
 }

@@ -1,30 +1,24 @@
 package com.kbj.contextory.domain.ai.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.time.OffsetDateTime;
 
 @Getter
-@Builder
+@Setter
+@ToString
 @NoArgsConstructor
-@AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class FastApiJobStatusResponseDto {
 
-    @JsonProperty("job_id")
     private String jobId;
-
-    @JsonProperty("analysis_id")
     private Long analysisId;
-
-    private String status; // PENDING, PROCESSING, COMPLETED, FAILED, CANCELED
-
-    @JsonProperty("started_at")
+    private String status;
     private OffsetDateTime startedAt;
-
-    @JsonProperty("completed_at")
     private OffsetDateTime completedAt;
 }
