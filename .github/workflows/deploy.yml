@@ -1,0 +1,167 @@
+name: Deploy Contextory Backend
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: contextory-develop-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: contextory-backend
+  EC2_INSTANCE_ID: i-09cbd8c6317a0c051
+  CONTAINER_NAME: contextory-backend
+  AWS_ROLE_ARN: arn:aws:iam::633876205750:role/contextory-github-actions-role
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2.1.6
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          docker build \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
+            .
+
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+      - name: Deploy to EC2 using SSM
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          cat > ssm-params.json <<EOF
+          {
+            "commands": [
+              "set -euo pipefail",
+              "REGION='${AWS_REGION}'",
+              "REGISTRY='${ECR_REGISTRY}'",
+              "REPOSITORY='${ECR_REPOSITORY}'",
+              "IMAGE_TAG='${IMAGE_TAG}'",
+              "NEW_IMAGE=\"\${REGISTRY}/\${REPOSITORY}:\${IMAGE_TAG}\"",
+
+              "aws ecr get-login-password --region \"\${REGION}\" | docker login --username AWS --password-stdin \"\${REGISTRY}\"",
+
+              "docker pull \"\${NEW_IMAGE}\"",
+
+              "OLD_IMAGE_ID=\$(docker inspect -f '{{.Image}}' ${CONTAINER_NAME} 2>/dev/null || true)",
+
+              "docker rm -f ${CONTAINER_NAME} 2>/dev/null || true",
+
+              "docker run -d --name ${CONTAINER_NAME} --restart unless-stopped --env-file /opt/contextory/.env -p 8080:8080 \"\${NEW_IMAGE}\"",
+
+              "for i in \$(seq 1 30); do if curl -fsS http://localhost:8080/health >/dev/null; then echo 'Health check passed'; exit 0; fi; sleep 2; done",
+
+              "echo 'Health check failed - rollback' >&2",
+
+              "docker logs --tail 200 ${CONTAINER_NAME} || true",
+
+              "docker rm -f ${CONTAINER_NAME} || true",
+
+              "if [ -n \"\${OLD_IMAGE_ID}\" ]; then docker run -d --name ${CONTAINER_NAME} --restart unless-stopped --env-file /opt/contextory/.env -p 8080:8080 \"\${OLD_IMAGE_ID}\"; fi",
+
+              "exit 1"
+            ]
+          }
+          EOF
+
+          COMMAND_ID=$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy Contextory ${GITHUB_SHA}" \
+            --parameters file://ssm-params.json \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          STATUS="Pending"
+
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "$AWS_REGION" \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
+
+            echo "SSM status: $STATUS"
+
+            case "$STATUS" in
+              Success)
+                break
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                break
+                ;;
+            esac
+
+            sleep 5
+          done
+
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query '{
+              Status:Status,
+              Stdout:StandardOutputContent,
+              Stderr:StandardErrorContent
+            }' \
+            --output json
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "Deployment failed: $STATUS" >&2
+            exit 1
+          fi
+
+      - name: Verify ALB
+        run: |
+          set -euo pipefail
+
+          for i in $(seq 1 20); do
+            if curl -fsS \
+              http://contextory-alb-1083598401.ap-northeast-2.elb.amazonaws.com/health
+            then
+              echo
+              echo "ALB health check passed"
+              exit 0
+            fi
+
+            sleep 3
+          done
+
+          echo "ALB health check failed" >&2
+          exit 1
