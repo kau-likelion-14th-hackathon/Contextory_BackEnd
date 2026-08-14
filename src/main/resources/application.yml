@@ -102,4 +102,4 @@ contextory:
 ai:
   fastapi:
     base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
-    internal-api-key: ${INTERNAL_API_KEY:your-secret-internal-key-1234}
+    internal-api-key: ${INTERNAL_API_KEY:4b85ae1040fea97159cdf6260953019a}
