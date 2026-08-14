@@ -55,7 +55,9 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/health",
                                 "/error",
-                                "/api/github/callback"
+                                "/api/github/callback",
+                                "/internal/**",      // 👈 [추가] 내부 통신 API 및 Callback 경로 전체 허용
+                                "/internal/v1/**"   // 👈 [추가] 내부 통신 API 명시적 추가
                         ).permitAll()
                         .requestMatchers("/users/**").hasRole("ADMIN")
                         .anyRequest().authenticated()

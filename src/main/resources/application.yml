@@ -98,3 +98,8 @@ contextory:
   invitation:
     accept-url: ${INVITATION_ACCEPT_URL:http://localhost:3000/invitations/accept}
     mail-from: ${MAIL_FROM:${MAIL_USERNAME}}
+
+ai:
+  fastapi:
+    base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
+    internal-api-key: ${INTERNAL_API_KEY:your-secret-internal-key-1234}
