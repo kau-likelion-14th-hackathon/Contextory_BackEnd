@@ -124,4 +124,11 @@ public class AiAnalysis {
         this.errorMessage = errorMessage;
         this.completedAt = LocalDateTime.now();
     }
+
+    /**
+     * FastAPI 작업 ID(jobId)를 선제적으로 연결합니다.
+     */
+    public void updateFastApiJobId(String fastapiJobId) {
+        this.fastapiJobId = fastapiJobId;
+    }
 }

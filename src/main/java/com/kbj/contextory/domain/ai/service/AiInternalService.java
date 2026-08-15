@@ -1,7 +1,9 @@
 package com.kbj.contextory.domain.ai.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kbj.contextory.domain.ai.dto.request.FastApiAnalysisRequestDto;
 import com.kbj.contextory.domain.ai.dto.request.FastApiCallbackRequestDto;
+import com.kbj.contextory.domain.ai.dto.response.FastApiAnalysisResponseDto;
 import com.kbj.contextory.domain.ai.dto.response.FastApiJobStatusResponseDto;
 import com.kbj.contextory.domain.ai.entity.AiAnalysis;
 import com.kbj.contextory.domain.ai.repository.AiAnalysisRepository;
@@ -72,5 +74,21 @@ public class AiInternalService {
     private void refundCredit(AiAnalysis analysis, String errorMessage) {
         log.info("Credit 환불 처리 대상 - userId: {}, refundAmount: {}, error: {}",
                 analysis.getRequestedBy(), analysis.getCreditUsed(), errorMessage);
+    }
+
+    @Transactional
+    public FastApiAnalysisResponseDto requestAnalysis(FastApiAnalysisRequestDto requestDto) {
+        // 1. FastApiClient를 통해 FastAPI 서버에 비동기 분석 요청 전달
+        FastApiAnalysisResponseDto response = fastApiClient.requestAnalysis(requestDto);
+
+        // 2. DB에 이미 존재하는 분석 레코드라면 발급받은 jobId를 선제적으로 매핑
+        aiAnalysisRepository.findById(requestDto.getAnalysisId()).ifPresent(analysis -> {
+            analysis.updateFastApiJobId(response.getJobId());
+        });
+
+        log.info("[FastAPI 분석 요청 접수 성공] analysisId: {}, jobId: {}, status: {}",
+                requestDto.getAnalysisId(), response.getJobId(), response.getStatus());
+
+        return response;
     }
 }
