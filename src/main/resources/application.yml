@@ -81,7 +81,7 @@ github:
     slug: ${GITHUB_APP_SLUG}
     client-id: ${GITHUB_CLIENT_ID}
     client-secret: ${GITHUB_CLIENT_SECRET}
-    callback-url: ${GITHUB_CALLBACK_URL:http://localhost:8080/api/github/callback}
+    callback-url: ${GITHUB_CALLBACK_URL:https://api.contextory.kro.kr/api/github/callback}
     install-base-url: ${GITHUB_INSTALL_BASE_URL:https://github.com/apps}
 
   oauth:

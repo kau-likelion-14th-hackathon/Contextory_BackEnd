@@ -121,8 +121,8 @@ public class AuthController {
     private ResponseCookie createRefreshTokenCookie(String refreshToken) {
         return ResponseCookie.from("refresh_token", refreshToken)
                 .httpOnly(true)    // 자바스크립트 접근 불가 (XSS 방어)
-                .secure(false)     // HTTPS 적용 전에는 false로 둬야 로컬에서 쿠키가 구워짐 (나중에 배포 시 true로 변경)
-                .sameSite("Lax")   // CSRF 방어용 (프론트/백 도메인이 다르면 환경에 따라 None 설정 필요)
+                .secure(true)     // HTTPS 적용 전에는 false로 둬야 로컬에서 쿠키가 구워짐 (나중에 배포 시 true로 변경)
+                .sameSite("None")   // CSRF 방어용 (프론트/백 도메인이 다르면 환경에 따라 None 설정 필요)
                 .maxAge(14 * 24 * 60 * 60) // 14일 (초 단위)
                 .path("/")
                 .build();

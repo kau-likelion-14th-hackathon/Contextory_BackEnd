@@ -32,7 +32,7 @@ public class SwaggerConfig {
                         .bearerFormat("JWT"));
 
         Server deployedServer = new Server()
-                .url("http://contextory-alb-1083598401.ap-northeast-2.elb.amazonaws.com")
+                .url("https://api.contextory.kro.kr")
                 .description("Contextory AWS Server");
 
         Server localServer = new Server()
