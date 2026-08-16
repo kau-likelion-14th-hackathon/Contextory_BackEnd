@@ -103,6 +103,8 @@ public class AuthController {
         // 브라우저에 남아있는 쿠키를 강제로 덮어씌워서 삭제(수명 0초)
         ResponseCookie expiredCookie = ResponseCookie.from("refresh_token", "")
                 .maxAge(0)
+                .secure(true)
+                .sameSite("None")
                 .path("/")
                 .build();
         httpResponse.addHeader(HttpHeaders.SET_COOKIE, expiredCookie.toString());
