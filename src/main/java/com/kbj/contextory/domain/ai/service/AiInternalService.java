@@ -44,7 +44,8 @@ public class AiInternalService {
                 callbackDto.getStatus(),
                 callbackDto.getModelName());
 
-        AiAnalysis analysis = aiAnalysisRepository.findById(analysisId)
+        // cancel 요청과 callback이 동시에 들어와도 같은 분석 Row를 순차 처리하도록 잠근다.
+        AiAnalysis analysis = aiAnalysisRepository.findByIdForUpdate(analysisId)
                 .orElseThrow(() -> GeneralException.of(ErrorCode.AI_ANALYSIS_NOT_FOUND));
 
         if (analysis.getFastapiJobId() != null
@@ -124,6 +125,7 @@ public class AiInternalService {
 
         FastApiAnalysisResponseDto response = fastApiClient.requestAnalysis(requestWithCallback);
 
+        // PROCESSING 전이 기준은 FastAPI 담당자와 API 계약 확인 후 별도 반영한다.
         analysis.updateFastApiJobId(response.getJobId());
 
         log.info("FastAPI 분석 요청 접수 - analysisId: {}, jobId: {}, status: {}",

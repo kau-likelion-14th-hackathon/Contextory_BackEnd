@@ -42,7 +42,6 @@ class AiInternalServiceTest {
                 .githubPrId(1L)
                 .prNumber(1)
                 .analyzedHeadSha("abc123")
-                .creditUsed(1)
                 .modelName("gpt-test")
                 .build();
     }
@@ -58,7 +57,7 @@ class AiInternalServiceTest {
     void DB에_저장된_jobId와_콜백_jobId가_다르면_예외를_던지고_상태를_변경하지_않는다() throws Exception {
         AiAnalysis analysis = newAnalysis();
         analysis.updateFastApiJobId("original-job-id");
-        when(aiAnalysisRepository.findById(1L)).thenReturn(Optional.of(analysis));
+        when(aiAnalysisRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(analysis));
 
         FastApiCallbackRequestDto callback = callbackOf("tampered-job-id", "COMPLETED");
 
@@ -75,7 +74,7 @@ class AiInternalServiceTest {
     void DB에_저장된_jobId와_콜백_jobId가_같으면_정상적으로_완료_처리된다() throws Exception {
         AiAnalysis analysis = newAnalysis();
         analysis.updateFastApiJobId("matching-job-id");
-        when(aiAnalysisRepository.findById(1L)).thenReturn(Optional.of(analysis));
+        when(aiAnalysisRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(analysis));
 
         FastApiCallbackRequestDto callback = callbackOf("matching-job-id", "COMPLETED");
 
@@ -87,7 +86,7 @@ class AiInternalServiceTest {
     @Test
     void DB에_기록된_jobId가_아직_없으면_불일치_검증을_건너뛰고_최초_jobId를_기록한다() throws Exception {
         AiAnalysis analysis = newAnalysis();
-        when(aiAnalysisRepository.findById(1L)).thenReturn(Optional.of(analysis));
+        when(aiAnalysisRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(analysis));
 
         FastApiCallbackRequestDto callback = callbackOf("first-job-id", "COMPLETED");
 
@@ -95,5 +94,20 @@ class AiInternalServiceTest {
 
         assertThat(analysis.getFastapiJobId()).isEqualTo("first-job-id");
         assertThat(analysis.getAnalysisStatus()).isEqualTo(AnalysisStatus.COMPLETED);
+    }
+
+    @Test
+    void 취소된_분석에_완료_콜백이_늦게_도착하면_취소_상태를_유지한다() throws Exception {
+        AiAnalysis analysis = newAnalysis();
+        analysis.updateFastApiJobId("matching-job-id");
+        analysis.cancel();
+        when(aiAnalysisRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(analysis));
+
+        FastApiCallbackRequestDto callback = callbackOf("matching-job-id", "COMPLETED");
+
+        aiInternalService.processCallback(1L, callback);
+
+        assertThat(analysis.getAnalysisStatus()).isEqualTo(AnalysisStatus.CANCELED);
+        assertThat(analysis.getResultJson()).isNull();
     }
 }

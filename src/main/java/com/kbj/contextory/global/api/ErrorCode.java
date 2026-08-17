@@ -74,7 +74,7 @@ public enum ErrorCode implements BaseCode { // 실패
     // AI Analysis
     AI_ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_ANALYSIS_4041", "분석 요청을 찾을 수 없습니다."),
     AI_ANALYSIS_INVALID_STATUS(HttpStatus.BAD_REQUEST, "AI_ANALYSIS_4001", "현재 상태에서는 해당 분석 작업을 수행할 수 없습니다."),
-    AI_ANALYSIS_REPOSITORY_NOT_CONNECTED(HttpStatus.BAD_REQUEST, "AI_ANALYSIS_4002", "프로젝트에 GitHub 저장소가 연결되어 있지 않습니다."),
+    AI_ANALYSIS_ACTION_FORBIDDEN(HttpStatus.FORBIDDEN, "AI_ANALYSIS_4031", "해당 분석 작업을 취소하거나 재시도할 권한이 없습니다."),
     AI_ANALYSIS_JOB_ID_MISMATCH(HttpStatus.CONFLICT, "AI_ANALYSIS_4091", "분석 작업 식별자(Job ID)가 일치하지 않습니다."),
     AI_ANALYSIS_INVALID_CALLBACK_STATUS(HttpStatus.BAD_REQUEST, "AI_ANALYSIS_4003", "허용되지 않는 콜백 상태입니다."),
     AI_ANALYSIS_SERVER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI_ANALYSIS_5031", "FastAPI 분석 서버를 사용할 수 없습니다."),

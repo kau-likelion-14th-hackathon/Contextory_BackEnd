@@ -24,6 +24,7 @@ import com.kbj.contextory.github.support.ProjectAccessChecker;
 import com.kbj.contextory.global.api.ErrorCode;
 import com.kbj.contextory.global.exception.GeneralException;
 import com.kbj.contextory.project.domain.Project;
+import com.kbj.contextory.project.domain.ProjectPermissionRole;
 import com.kbj.contextory.project.repository.ProjectJpaRepository;
 import com.kbj.contextory.user.domain.User;
 import com.kbj.contextory.user.repository.UserRepository;
@@ -39,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -159,6 +161,7 @@ public class AiAnalysisService {
         projectAccessChecker.requireMember(projectId, userId);
 
         AiAnalysis previousAnalysis = getProjectAnalysis(projectId, analysisId);
+        requireAnalysisActionPermission(projectId, userId, previousAnalysis);
 
         if (previousAnalysis.getAnalysisStatus() != AnalysisStatus.FAILED) {
             throw GeneralException.of(ErrorCode.AI_ANALYSIS_INVALID_STATUS);
@@ -185,7 +188,9 @@ public class AiAnalysisService {
     ) {
         projectAccessChecker.requireMember(projectId, userId);
 
-        AiAnalysis analysis = getProjectAnalysis(projectId, analysisId);
+        // callback과 동시에 요청되더라도 동일 Row를 잠가 Lost Update를 방지한다.
+        AiAnalysis analysis = getProjectAnalysisForUpdate(projectId, analysisId);
+        requireAnalysisActionPermission(projectId, userId, analysis);
 
         if (!analysis.isCancelable()) {
             throw GeneralException.of(ErrorCode.AI_ANALYSIS_INVALID_STATUS);
@@ -206,7 +211,7 @@ public class AiAnalysisService {
         ProjectGithubRepository repository = projectGithubRepositoryJpaRepository
                 .findByProjectId(projectId)
                 .orElseThrow(() -> GeneralException.of(
-                        ErrorCode.AI_ANALYSIS_REPOSITORY_NOT_CONNECTED
+                        ErrorCode.PROJECT_REPOSITORY_NOT_CONNECTED
                 ));
 
         String accessToken = githubUserAccessTokenProvider.getAccessToken(userId);
@@ -312,6 +317,27 @@ public class AiAnalysisService {
     private AiAnalysis getProjectAnalysis(Long projectId, Long analysisId) {
         return aiAnalysisRepository.findByAnalysisIdAndProjectId(analysisId, projectId)
                 .orElseThrow(() -> GeneralException.of(ErrorCode.AI_ANALYSIS_NOT_FOUND));
+    }
+
+    private AiAnalysis getProjectAnalysisForUpdate(Long projectId, Long analysisId) {
+        return aiAnalysisRepository.findByAnalysisIdAndProjectIdForUpdate(analysisId, projectId)
+                .orElseThrow(() -> GeneralException.of(ErrorCode.AI_ANALYSIS_NOT_FOUND));
+    }
+
+    private void requireAnalysisActionPermission(
+            Long projectId,
+            Long userId,
+            AiAnalysis analysis
+    ) {
+        if (Objects.equals(analysis.getRequestedBy(), userId)) {
+            return;
+        }
+
+        ProjectPermissionRole role = projectAccessChecker.getRole(projectId, userId);
+        if (role != ProjectPermissionRole.OWNER
+                && role != ProjectPermissionRole.ADMIN) {
+            throw GeneralException.of(ErrorCode.AI_ANALYSIS_ACTION_FORBIDDEN);
+        }
     }
 
     private AnalysisStatus parseAnalysisStatus(String status) {
