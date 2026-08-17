@@ -97,6 +97,8 @@ github:
 contextory:
   server:
     base-url: ${SERVER_BASE_URL:http://localhost:8080}
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   invitation:
     accept-url: ${INVITATION_ACCEPT_URL:http://localhost:3000/invitations/accept}
     mail-from: ${MAIL_FROM:${MAIL_USERNAME}}

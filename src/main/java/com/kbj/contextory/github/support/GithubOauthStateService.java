@@ -30,7 +30,10 @@ public class GithubOauthStateService {
     private Duration stateExpiration;
 
     @Transactional
-    public IssuedState issue(Long userId) {
+    public IssuedState issue(
+            Long userId,
+            Long projectId
+    ) {
         byte[] randomBytes = new byte[32];
         SECURE_RANDOM.nextBytes(randomBytes);
 
@@ -43,6 +46,7 @@ public class GithubOauthStateService {
                 GithubOauthState.builder()
                         .stateHash(hash(rawState))
                         .userId(userId)
+                        .projectId(projectId)
                         .expiresAt(expiresAt)
                         .build()
         );
@@ -51,7 +55,7 @@ public class GithubOauthStateService {
     }
 
     @Transactional
-    public Long consume(String rawState) {
+    public ConsumedState consume(String rawState) {
         if (rawState == null || rawState.isBlank()) {
             throw GeneralException.of(ErrorCode.GITHUB_OAUTH_STATE_INVALID);
         }
@@ -67,9 +71,18 @@ public class GithubOauthStateService {
             throw GeneralException.of(ErrorCode.GITHUB_OAUTH_STATE_EXPIRED);
         }
 
-        Long userId = state.getUserId();
+        if (state.getProjectId() == null) {
+            stateRepository.delete(state);
+            throw GeneralException.of(ErrorCode.GITHUB_OAUTH_STATE_INVALID);
+        }
+
+        ConsumedState consumedState = new ConsumedState(
+                state.getUserId(),
+                state.getProjectId()
+        );
+
         stateRepository.delete(state);
-        return userId;
+        return consumedState;
     }
 
     private String hash(String value) {
@@ -83,5 +96,8 @@ public class GithubOauthStateService {
     }
 
     public record IssuedState(String value, Instant expiresAt) {
+    }
+
+    public record ConsumedState(Long userId, Long projectId) {
     }
 }

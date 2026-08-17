@@ -7,6 +7,7 @@ import com.kbj.contextory.github.client.GithubOauthTokenResponse;
 import com.kbj.contextory.github.dto.response.GithubConnectResponse;
 import com.kbj.contextory.github.dto.response.GithubConnectionResponse;
 import com.kbj.contextory.github.support.GithubOauthStateService;
+import com.kbj.contextory.github.support.ProjectAccessChecker;
 import com.kbj.contextory.global.api.ErrorCode;
 import com.kbj.contextory.global.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class GithubConnectionService {
     private final GithubOauthStateService stateService;
     private final GithubOauthClient githubOauthClient;
     private final GithubConnectionPersistenceService persistenceService;
+    private final ProjectAccessChecker projectAccessChecker;
 
     @Value("${github.app.install-base-url:https://github.com/apps}")
     private String installBaseUrl;
@@ -32,8 +34,14 @@ public class GithubConnectionService {
     @Value("${github.app.slug}")
     private String appSlug;
 
-    public GithubConnectResponse createConnectUrl(Long userId) {
-        GithubOauthStateService.IssuedState issuedState = stateService.issue(userId);
+    public GithubConnectResponse createConnectUrl(
+            Long userId,
+            Long projectId
+    ) {
+        projectAccessChecker.requireMember(projectId, userId);
+
+        GithubOauthStateService.IssuedState issuedState =
+                stateService.issue(userId, projectId);
 
         String installUrl = UriComponentsBuilder
                 .fromUriString(installBaseUrl)
@@ -54,12 +62,15 @@ public class GithubConnectionService {
                 .build();
     }
 
-    public GithubConnectionResponse completeConnection(
+    public GithubConnectionResult completeConnection(
             String code,
             String state,
             Long callbackInstallationId
     ) {
-        Long userId = stateService.consume(state);
+        GithubOauthStateService.ConsumedState consumedState =
+                stateService.consume(state);
+
+        Long userId = consumedState.userId();
 
         if (code == null || code.isBlank()) {
             throw GeneralException.of(ErrorCode.GITHUB_OAUTH_CODE_MISSING);
@@ -89,11 +100,23 @@ public class GithubConnectionService {
             }
         }
 
-        return persistenceService.saveConnection(
-                userId,
-                githubUser,
-                tokenResponse,
-                installations
+        GithubConnectionResponse connection =
+                persistenceService.saveConnection(
+                        userId,
+                        githubUser,
+                        tokenResponse,
+                        installations
+                );
+
+        return new GithubConnectionResult(
+                connection,
+                consumedState.projectId()
         );
+    }
+
+    public record GithubConnectionResult(
+            GithubConnectionResponse connection,
+            Long projectId
+    ) {
     }
 }

@@ -30,6 +30,11 @@ public class GithubOauthState {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    // 기존 Row가 남아 있는 환경에서도 ddl-auto=update로 안전하게 컬럼을 추가하기 위해
+    // DB 레벨 NOT NULL은 바로 강제하지 않는다. 새 state에는 항상 projectId가 저장된다.
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
@@ -37,10 +42,12 @@ public class GithubOauthState {
     private GithubOauthState(
             String stateHash,
             Long userId,
+            Long projectId,
             Instant expiresAt
     ) {
         this.stateHash = stateHash;
         this.userId = userId;
+        this.projectId = projectId;
         this.expiresAt = expiresAt;
     }
 }
