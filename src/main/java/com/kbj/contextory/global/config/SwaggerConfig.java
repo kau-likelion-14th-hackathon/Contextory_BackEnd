@@ -23,13 +23,18 @@ public class SwaggerConfig {
                 .description(" API Documentation");
 
         String jwtSchemeName = "BearerToken";
+        String internalApiKeySchemeName = "InternalApiKey";
         SecurityRequirement securityRequirement = new SecurityRequirement().addList(jwtSchemeName);
         Components components = new Components()
                 .addSecuritySchemes(jwtSchemeName, new SecurityScheme()
                         .name(jwtSchemeName)
                         .type(SecurityScheme.Type.HTTP)
                         .scheme("bearer")
-                        .bearerFormat("JWT"));
+                        .bearerFormat("JWT"))
+                .addSecuritySchemes(internalApiKeySchemeName, new SecurityScheme()
+                        .name("X-Internal-Api-Key")
+                        .type(SecurityScheme.Type.APIKEY)
+                        .in(SecurityScheme.In.HEADER));
 
         Server deployedServer = new Server()
                 .url("https://api.contextory.kro.kr")

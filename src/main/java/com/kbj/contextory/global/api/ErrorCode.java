@@ -68,6 +68,14 @@ public enum ErrorCode implements BaseCode { // 실패
     GITHUB_TOKEN_REFRESH_FAILED(HttpStatus.UNAUTHORIZED, "GITHUB_4013", "GitHub Access Token 갱신에 실패했습니다. 다시 연결해주세요."),
     GITHUB_TOKEN_ENCRYPT_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_5001", "GitHub Token 암호화에 실패했습니다."),
     GITHUB_TOKEN_DECRYPT_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_5002", "GitHub Token 복호화에 실패했습니다."),
+
+    // Internal API
+    INTERNAL_API_KEY_INVALID(HttpStatus.UNAUTHORIZED, "INTERNAL_4011", "유효하지 않은 Internal API Key입니다."),
+
+    // AI Analysis
+    AI_ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_ANALYSIS_4041", "분석 요청을 찾을 수 없습니다."),
+    AI_ANALYSIS_JOB_ID_MISMATCH(HttpStatus.CONFLICT, "AI_ANALYSIS_4091", "분석 작업 식별자(Job ID)가 일치하지 않습니다."),
+    AI_ANALYSIS_INVALID_CALLBACK_STATUS(HttpStatus.BAD_REQUEST, "AI_ANALYSIS_4001", "허용되지 않는 콜백 상태입니다."),
     ;
 
     private final HttpStatus httpStatus;
