@@ -11,6 +11,7 @@ import java.time.Instant;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GithubApiPullRequest {
 
+    private Long id;
     private Integer number;
     private String state;
     private String title;

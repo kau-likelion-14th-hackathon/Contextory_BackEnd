@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 public enum SuccessCode implements BaseCode { // 성공
     OK(HttpStatus.OK, "COMMON_200", "Success"),
     CREATED(HttpStatus.CREATED, "COMMON_201", "Created"),
+    ACCEPTED(HttpStatus.ACCEPTED, "COMMON_202", "Accepted"),
 
     USER_SIGNIN_SUCCESS(HttpStatus.CREATED, "USER_2011", "회원가입이 완료되었습니다."),
     USER_LOGOUT_SUCCESS(HttpStatus.OK, "USER_2001", "로그아웃 되었습니다."),
@@ -18,7 +19,6 @@ public enum SuccessCode implements BaseCode { // 성공
     USER_INFO_GET_SUCCESS(HttpStatus.OK, "USER_2007", "유저 정보 조회가 완료되었습니다."),
     USER_LOGIN_SUCCESS(HttpStatus.OK, "USER_2008", "로그인이 완료되었습니다."),
 
-    // profile success
     PROFILE_PUT_SUCCESS(HttpStatus.OK, "PROFILE_2001", "프로필 수정(추가)이 완료되었습니다."),
     PROFILE_DELETE_SUCCESS(HttpStatus.OK, "PROFILE_2002", "프로필 삭제가 완료되었습니다."),
     ;
@@ -27,7 +27,6 @@ public enum SuccessCode implements BaseCode { // 성공
     private final String code;
     private final String message;
 
-    // 응답 코드 상세 정보 return
     @Override
     public ReasonDTO getReason() {
         return ReasonDTO.builder()

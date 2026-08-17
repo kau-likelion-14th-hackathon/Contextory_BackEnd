@@ -32,7 +32,6 @@ public enum ErrorCode implements BaseCode { // 실패
     S3_UPLOAD_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "S3_5031", "파일 저장에 실패했습니다."),
     S3_KEY_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S3_5001", "파일 키 생성에 실패했습니다."),
     S3_DELETE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "S3_5032", "파일 삭제에 실패했습니다."),
-    // ErrorCode enum 내부에 추가
 
     // Project
     PROJECT_NOT_FOUND(HttpStatus.NOT_FOUND, "PROJECT_4041", "프로젝트를 찾을 수 없습니다."),
@@ -54,7 +53,7 @@ public enum ErrorCode implements BaseCode { // 실패
 
     // GitHub
     GITHUB_CONNECTION_REQUIRED(HttpStatus.UNAUTHORIZED, "GITHUB_4011", "GitHub 연결 또는 Access Token 설정이 필요합니다."),
-    GITHUB_REPOSITORY_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_4041", "GitHub 저장소를 찾을 수 없습니다."),
+    GITHUB_REPOSITORY_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_4041", "GitHub 저장소 또는 Pull Request를 찾을 수 없습니다."),
     GITHUB_REPOSITORY_ID_MISMATCH(HttpStatus.BAD_REQUEST, "GITHUB_4001", "GitHub 저장소 ID와 저장소 이름이 일치하지 않습니다."),
     GITHUB_API_FAILED(HttpStatus.BAD_GATEWAY, "GITHUB_5021", "GitHub API 호출에 실패했습니다."),
     GITHUB_REAUTHORIZATION_REQUIRED(HttpStatus.UNAUTHORIZED, "GITHUB_4012", "GitHub 연결이 만료되었습니다. 다시 연결해주세요."),
@@ -74,15 +73,17 @@ public enum ErrorCode implements BaseCode { // 실패
 
     // AI Analysis
     AI_ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_ANALYSIS_4041", "분석 요청을 찾을 수 없습니다."),
+    AI_ANALYSIS_INVALID_STATUS(HttpStatus.BAD_REQUEST, "AI_ANALYSIS_4001", "현재 상태에서는 해당 분석 작업을 수행할 수 없습니다."),
+    AI_ANALYSIS_REPOSITORY_NOT_CONNECTED(HttpStatus.BAD_REQUEST, "AI_ANALYSIS_4002", "프로젝트에 GitHub 저장소가 연결되어 있지 않습니다."),
     AI_ANALYSIS_JOB_ID_MISMATCH(HttpStatus.CONFLICT, "AI_ANALYSIS_4091", "분석 작업 식별자(Job ID)가 일치하지 않습니다."),
-    AI_ANALYSIS_INVALID_CALLBACK_STATUS(HttpStatus.BAD_REQUEST, "AI_ANALYSIS_4001", "허용되지 않는 콜백 상태입니다."),
+    AI_ANALYSIS_INVALID_CALLBACK_STATUS(HttpStatus.BAD_REQUEST, "AI_ANALYSIS_4003", "허용되지 않는 콜백 상태입니다."),
+    AI_ANALYSIS_SERVER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI_ANALYSIS_5031", "FastAPI 분석 서버를 사용할 수 없습니다."),
     ;
 
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;
 
-    // 응답 코드 상세 정보 return
     @Override
     public ReasonDTO getReason() {
         return ReasonDTO.builder()

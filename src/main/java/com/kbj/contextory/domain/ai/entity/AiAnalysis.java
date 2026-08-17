@@ -46,16 +46,12 @@ public class AiAnalysis {
     @Column(name = "analysis_status", length = 50, nullable = false)
     private AnalysisStatus analysisStatus;
 
-    // MySQL/PostgreSQL의 JSON 컬럼 매핑
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "result_json", columnDefinition = "json")
     private String resultJson;
 
     @Column(name = "model_name", length = 100)
     private String modelName;
-
-    @Column(name = "credit_used")
-    private Integer creditUsed;
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
@@ -87,47 +83,70 @@ public class AiAnalysis {
     }
 
     @Builder
-    public AiAnalysis(Long projectId, Long repositoryId, Long requestedBy, Long githubPrId,
-                      Integer prNumber, String analyzedHeadSha, Integer creditUsed, String modelName) {
+    public AiAnalysis(
+            Long projectId,
+            Long repositoryId,
+            Long requestedBy,
+            Long githubPrId,
+            Integer prNumber,
+            String analyzedHeadSha,
+            String modelName
+    ) {
         this.projectId = projectId;
         this.repositoryId = repositoryId;
         this.requestedBy = requestedBy;
         this.githubPrId = githubPrId;
         this.prNumber = prNumber;
         this.analyzedHeadSha = analyzedHeadSha;
-        this.creditUsed = creditUsed != null ? creditUsed : 1;
         this.modelName = modelName;
         this.analysisStatus = AnalysisStatus.PENDING;
     }
 
-    // 작업 시작 시 (FastAPI 접수 후 JobId 매핑)
     public void markProcessing(String fastapiJobId) {
         this.fastapiJobId = fastapiJobId;
         this.analysisStatus = AnalysisStatus.PROCESSING;
-        this.startedAt = LocalDateTime.now();
+        if (this.startedAt == null) {
+            this.startedAt = LocalDateTime.now();
+        }
     }
 
-    // 성공 처리 (modelName 추가 반영)
     public void complete(String fastapiJobId, String modelName, String resultJson) {
         this.fastapiJobId = fastapiJobId;
         this.modelName = modelName;
         this.analysisStatus = AnalysisStatus.COMPLETED;
         this.resultJson = resultJson;
+        this.errorMessage = null;
         this.completedAt = LocalDateTime.now();
     }
 
-    // 실패 처리
     public void fail(String fastapiJobId, String modelName, String errorMessage) {
-        this.fastapiJobId = fastapiJobId;
-        this.modelName = modelName;
+        if (fastapiJobId != null) {
+            this.fastapiJobId = fastapiJobId;
+        }
+        if (modelName != null) {
+            this.modelName = modelName;
+        }
         this.analysisStatus = AnalysisStatus.FAILED;
         this.errorMessage = errorMessage;
         this.completedAt = LocalDateTime.now();
     }
 
-    /**
-     * FastAPI 작업 ID(jobId)를 선제적으로 연결합니다.
-     */
+    public boolean isCancelable() {
+        return this.analysisStatus == AnalysisStatus.PENDING
+                || this.analysisStatus == AnalysisStatus.PROCESSING;
+    }
+
+    public boolean isTerminal() {
+        return this.analysisStatus == AnalysisStatus.COMPLETED
+                || this.analysisStatus == AnalysisStatus.FAILED
+                || this.analysisStatus == AnalysisStatus.CANCELED;
+    }
+
+    public void cancel() {
+        this.analysisStatus = AnalysisStatus.CANCELED;
+        this.completedAt = LocalDateTime.now();
+    }
+
     public void updateFastApiJobId(String fastapiJobId) {
         this.fastapiJobId = fastapiJobId;
     }
