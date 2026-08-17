@@ -13,8 +13,6 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.nio.charset.StandardCharsets;
-
 @Slf4j
 @Component
 public class FastApiClient {
@@ -31,7 +29,6 @@ public class FastApiClient {
     public FastApiClient() {
         this.objectMapper = new ObjectMapper();
 
-        // 표준 SimpleClientHttpRequestFactory 적용 (BufferRequestBody 기본 활성화)
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(5000);
         requestFactory.setReadTimeout(10000);
@@ -46,9 +43,6 @@ public class FastApiClient {
         log.info("[FastApiClient Init] BaseURL: {}", fastApiBaseUrl);
     }
 
-    /**
-     * FastAPI 분석 작업 상태 조회 (GET /internal/v1/analyses/{jobId})
-     */
     public FastApiJobStatusResponseDto getJobStatus(String jobId) {
         return restClient.get()
                 .uri(fastApiBaseUrl + "/internal/v1/analyses/{jobId}", jobId)
@@ -57,14 +51,18 @@ public class FastApiClient {
                 .body(FastApiJobStatusResponseDto.class);
     }
 
-    /**
-     * FastAPI 분석 요청 (POST /internal/v1/analyses)
-     */
     public FastApiAnalysisResponseDto requestAnalysis(FastApiAnalysisRequestDto requestDto) {
         try {
-            // DTO를 byte[]로 직접 변환하여 Content-Length와 함께 확실하게 전송
             byte[] jsonBytes = objectMapper.writeValueAsBytes(requestDto);
-            log.info("FastAPI 분석 요청 전송 Body: {}", new String(jsonBytes, StandardCharsets.UTF_8));
+
+            // PR patch 전체 대신 식별용 metadata만 로그에 남긴다.
+            log.info(
+                    "FastAPI 분석 요청 전송 - analysisId: {}, projectId: {}, repositoryId: {}, repository: {}",
+                    requestDto.getAnalysisId(),
+                    requestDto.getProjectId(),
+                    requestDto.getRepositoryId(),
+                    requestDto.getRepositoryFullName()
+            );
 
             return restClient.post()
                     .uri(fastApiBaseUrl + "/internal/v1/analyses")
@@ -75,10 +73,15 @@ public class FastApiClient {
                     .body(jsonBytes)
                     .retrieve()
                     .body(FastApiAnalysisResponseDto.class);
-
-        } catch (Exception e) {
-            log.error("FastAPI 분석 요청 실패: {}", e.getMessage(), e);
-            throw new RuntimeException("FastAPI 서버 통신 중 오류가 발생했습니다: " + e.getMessage(), e);
+        } catch (Exception exception) {
+            log.error("FastAPI 분석 요청 실패 - analysisId: {}, error: {}",
+                    requestDto.getAnalysisId(),
+                    exception.getMessage(),
+                    exception);
+            throw new RuntimeException(
+                    "FastAPI 서버 통신 중 오류가 발생했습니다: " + exception.getMessage(),
+                    exception
+            );
         }
     }
 }
