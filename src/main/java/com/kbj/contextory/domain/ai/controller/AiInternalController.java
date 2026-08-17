@@ -8,6 +8,7 @@ import com.kbj.contextory.domain.ai.service.AiInternalService;
 import com.kbj.contextory.global.api.ApiResponse;
 import com.kbj.contextory.global.api.SuccessCode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+// JWT(BearerToken)가 아닌 X-Internal-Api-Key로 인증되는 서버 간 내부 API (InternalApiKeyFilter 참고)
 @Tag(name = "FastAPI 연동 (내부 API)", description = "FastAPI RAG 서버 연동 및 상태 조회 API")
+@SecurityRequirement(name = "InternalApiKey")
 @RestController
 @RequestMapping("/internal/v1/analyses")
 @RequiredArgsConstructor

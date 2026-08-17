@@ -47,10 +47,26 @@ public class FastApiAnalysisRequestDto {
     @Schema(description = "분석 결과 언어 (ko/en)", example = "ko")
     private String language;
 
-    @NotNull
-    @JsonProperty("callback_url")
-    @Schema(description = "분석 완료 콜백 URL", example = "http://localhost:8080/internal/v1/analyses/1/callback")
+    // Spring Boot 서버가 analysisId 기준으로 직접 생성하는 값 — 클라이언트가 보낸 값은 역직렬화 시 무시됨
+    @JsonProperty(value = "callback_url", access = JsonProperty.Access.READ_ONLY)
+    @Schema(
+            description = "분석 완료 콜백 URL (서버에서 자동 생성되며, 요청 값은 무시됩니다)",
+            example = "http://localhost:8080/internal/v1/analyses/1/callback",
+            accessMode = Schema.AccessMode.READ_ONLY
+    )
     private String callbackUrl;
+
+    public FastApiAnalysisRequestDto withCallbackUrl(String callbackUrl) {
+        return FastApiAnalysisRequestDto.builder()
+                .analysisId(this.analysisId)
+                .projectId(this.projectId)
+                .repositoryId(this.repositoryId)
+                .repositoryFullName(this.repositoryFullName)
+                .pullRequest(this.pullRequest)
+                .language(this.language)
+                .callbackUrl(callbackUrl)
+                .build();
+    }
 
     @Getter
     @Builder

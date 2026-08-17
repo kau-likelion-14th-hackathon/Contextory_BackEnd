@@ -43,7 +43,7 @@ public class FastApiClient {
 
     @PostConstruct
     public void init() {
-        log.info("[FastApiClient Init] BaseURL: {}, InternalApiKey: '{}'", fastApiBaseUrl, internalApiKey);
+        log.info("[FastApiClient Init] BaseURL: {}", fastApiBaseUrl);
     }
 
     /**

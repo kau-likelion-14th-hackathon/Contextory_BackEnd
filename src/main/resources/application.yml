@@ -95,6 +95,8 @@ github:
   token-encryption-key: ${GITHUB_TOKEN_ENCRYPTION_KEY}
 
 contextory:
+  server:
+    base-url: ${SERVER_BASE_URL:http://localhost:8080}
   invitation:
     accept-url: ${INVITATION_ACCEPT_URL:http://localhost:3000/invitations/accept}
     mail-from: ${MAIL_FROM:${MAIL_USERNAME}}
@@ -102,4 +104,4 @@ contextory:
 ai:
   fastapi:
     base-url: ${FASTAPI_BASE_URL:http://localhost:8000}
-    internal-api-key: ${INTERNAL_API_KEY:4b85ae1040fea97159cdf6260953019a}
+    internal-api-key: ${INTERNAL_API_KEY}
