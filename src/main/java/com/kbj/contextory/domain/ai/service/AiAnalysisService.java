@@ -1,7 +1,6 @@
 package com.kbj.contextory.domain.ai.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kbj.contextory.domain.ai.dto.request.AiAnalysisCreateRequest;
 import com.kbj.contextory.domain.ai.dto.request.FastApiAnalysisRequestDto;
@@ -352,17 +351,26 @@ public class AiAnalysisService {
         }
     }
 
-    private JsonNode parseResultJson(String resultJson) {
+    /**
+     * DB의 result_json 문자열을 Notion API 명세의 analysisResult(Object)로 변환한다.
+     *
+     * JsonNode를 그대로 반환하면 Spring Boot 4의 HTTP 직렬화 과정에서
+     * JsonNode의 isArray(), isObject() 등의 메타 속성이 노출될 수 있으므로
+     * 일반 Java Object(Map/List/primitive)로 파싱해 반환한다.
+     */
+    private Object parseResultJson(String resultJson) {
         if (resultJson == null || resultJson.isBlank()) {
             return null;
         }
 
         try {
-            return objectMapper.readTree(resultJson);
+            return objectMapper.readValue(resultJson, Object.class);
         } catch (JsonProcessingException exception) {
-            log.warn("AI 분석 result_json 파싱 실패 - 원문 문자열로 반환합니다. error={}",
-                    exception.getMessage());
-            return objectMapper.getNodeFactory().textNode(resultJson);
+            log.warn(
+                    "AI 분석 result_json 파싱 실패 - 원문 문자열로 반환합니다. error={}",
+                    exception.getMessage()
+            );
+            return resultJson;
         }
     }
 
