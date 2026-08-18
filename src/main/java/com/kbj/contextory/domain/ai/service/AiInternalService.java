@@ -125,8 +125,7 @@ public class AiInternalService {
 
         FastApiAnalysisResponseDto response = fastApiClient.requestAnalysis(requestWithCallback);
 
-        // PROCESSING 전이 기준은 FastAPI 담당자와 API 계약 확인 후 별도 반영한다.
-        analysis.updateFastApiJobId(response.getJobId());
+        analysis.markProcessing(response.getJobId());
 
         log.info("FastAPI 분석 요청 접수 - analysisId: {}, jobId: {}, status: {}",
                 requestDto.getAnalysisId(),
