@@ -25,6 +25,17 @@ public class ProjectAccessChecker {
         }
     }
 
+    // OWNER / ADMIN / MEMBER만 허용하고 VIEWER는 차단한다.
+    public void requireMemberOrAbove(Long projectId, Long userId) {
+        ProjectPermissionRole role = getRole(projectId, userId);
+
+        if (role != ProjectPermissionRole.OWNER
+                && role != ProjectPermissionRole.ADMIN
+                && role != ProjectPermissionRole.MEMBER) {
+            throw GeneralException.of(ErrorCode.PROJECT_ACCESS_DENIED);
+        }
+    }
+
     public void requireAdmin(Long projectId, Long userId) {
         ProjectPermissionRole role = getRole(projectId, userId);
         if (role != ProjectPermissionRole.OWNER

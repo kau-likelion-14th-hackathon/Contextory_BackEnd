@@ -18,8 +18,6 @@ public class AiAnalysisDetailResponse {
     private AnalysisStatus analysisStatus;
     private String modelName;
 
-    // Notion API 명세의 analysisResult(Object) 구조를 그대로 응답하기 위해
-    // Jackson JsonNode가 아닌 일반 Object(Map/List/String 등)로 반환한다.
     private Object analysisResult;
 
     private String errorMessage;

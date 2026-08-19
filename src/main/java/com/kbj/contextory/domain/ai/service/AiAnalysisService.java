@@ -12,6 +12,7 @@ import com.kbj.contextory.domain.ai.dto.response.AiAnalysisRequestResponse;
 import com.kbj.contextory.domain.ai.dto.response.AiAnalysisRetryResponse;
 import com.kbj.contextory.domain.ai.entity.AiAnalysis;
 import com.kbj.contextory.domain.ai.entity.AnalysisStatus;
+import com.kbj.contextory.domain.ai.record.repository.ProjectRecordRepository;
 import com.kbj.contextory.domain.ai.repository.AiAnalysisRepository;
 import com.kbj.contextory.github.domain.ProjectGithubRepository;
 import com.kbj.contextory.github.pullrequest.client.GithubApiPullRequest;
@@ -59,6 +60,7 @@ public class AiAnalysisService {
     private final GithubPullRequestApiClient githubPullRequestApiClient;
     private final GithubUserAccessTokenProvider githubUserAccessTokenProvider;
     private final UserRepository userRepository;
+    private final ProjectRecordRepository projectRecordRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -67,7 +69,7 @@ public class AiAnalysisService {
             Long userId,
             AiAnalysisCreateRequest request
     ) {
-        projectAccessChecker.requireMember(projectId, userId);
+        projectAccessChecker.requireMemberOrAbove(projectId, userId);
 
         AiAnalysis analysis = createAndDispatchAnalysis(
                 projectId,
@@ -86,53 +88,85 @@ public class AiAnalysisService {
             int page,
             int size
     ) {
-        projectAccessChecker.requireMember(projectId, userId);
+        projectAccessChecker.requireMemberOrAbove(projectId, userId);
 
-        AnalysisStatus analysisStatus = parseAnalysisStatus(status);
+        AnalysisStatus analysisStatus =
+                parseAnalysisStatus(status);
 
         Pageable pageable = PageRequest.of(
                 page,
                 size,
-                Sort.by(Sort.Direction.DESC, "createdAt")
+                Sort.by(
+                        Sort.Direction.DESC,
+                        "createdAt"
+                )
         );
 
-        Page<AiAnalysis> analysisPage = analysisStatus == null
-                ? aiAnalysisRepository.findAllByProjectId(projectId, pageable)
-                : aiAnalysisRepository.findAllByProjectIdAndAnalysisStatus(
-                        projectId,
-                        analysisStatus,
-                        pageable
-                );
+        Page<AiAnalysis> analysisPage =
+                analysisStatus == null
+                        ? aiAnalysisRepository
+                                .findAllByProjectId(
+                                        projectId,
+                                        pageable
+                                )
+                        : aiAnalysisRepository
+                                .findAllByProjectIdAndAnalysisStatus(
+                                        projectId,
+                                        analysisStatus,
+                                        pageable
+                                );
 
-        List<Long> requesterIds = analysisPage.getContent()
-                .stream()
-                .map(AiAnalysis::getRequestedBy)
-                .distinct()
-                .toList();
+        List<Long> requesterIds =
+                analysisPage.getContent()
+                        .stream()
+                        .map(AiAnalysis::getRequestedBy)
+                        .distinct()
+                        .toList();
 
-        Map<Long, User> usersById = userRepository.findAllById(requesterIds)
-                .stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<Long, User> usersById =
+                userRepository.findAllById(requesterIds)
+                        .stream()
+                        .collect(
+                                Collectors.toMap(
+                                        User::getId,
+                                        Function.identity()
+                                )
+                        );
 
-        List<AiAnalysisListItemResponse> content = analysisPage.getContent()
-                .stream()
-                .map(analysis -> {
-                    User requester = usersById.get(analysis.getRequestedBy());
-                    String username = requester == null
-                            ? UNKNOWN_USERNAME
-                            : requester.getUsername();
+        List<AiAnalysisListItemResponse> content =
+                analysisPage.getContent()
+                        .stream()
+                        .map(analysis -> {
+                            User requester =
+                                    usersById.get(
+                                            analysis.getRequestedBy()
+                                    );
 
-                    return AiAnalysisListItemResponse.of(analysis, username);
-                })
-                .toList();
+                            String username =
+                                    requester == null
+                                            ? UNKNOWN_USERNAME
+                                            : requester.getUsername();
+
+                            return AiAnalysisListItemResponse.of(
+                                    analysis,
+                                    username
+                            );
+                        })
+                        .toList();
 
         return AiAnalysisListResponse.builder()
                 .content(content)
                 .page(analysisPage.getNumber())
                 .size(analysisPage.getSize())
-                .totalElements(analysisPage.getTotalElements())
-                .totalPages(analysisPage.getTotalPages())
-                .hasNext(analysisPage.hasNext())
+                .totalElements(
+                        analysisPage.getTotalElements()
+                )
+                .totalPages(
+                        analysisPage.getTotalPages()
+                )
+                .hasNext(
+                        analysisPage.hasNext()
+                )
                 .build();
     }
 
@@ -142,13 +176,37 @@ public class AiAnalysisService {
             Long analysisId,
             Long userId
     ) {
-        projectAccessChecker.requireMember(projectId, userId);
+        projectAccessChecker.requireMemberOrAbove(
+                projectId,
+                userId
+        );
 
-        AiAnalysis analysis = getProjectAnalysis(projectId, analysisId);
+        AiAnalysis analysis =
+                getProjectAnalysis(
+                        projectId,
+                        analysisId
+                );
+
+        // 사람이 수정한 DRAFT 또는 승인본이 있으면
+        // AI 원본 result_json 대신 해당 내용을 상세 조회에 보여준다.
+        String effectiveResultJson =
+                projectRecordRepository
+                        .findByProjectIdAndAnalysisId(
+                                projectId,
+                                analysisId
+                        )
+                        .map(record ->
+                                record.getContentJson()
+                        )
+                        .orElse(
+                                analysis.getResultJson()
+                        );
 
         return AiAnalysisDetailResponse.of(
                 analysis,
-                parseResultJson(analysis.getResultJson())
+                parseResultJson(
+                        effectiveResultJson
+                )
         );
     }
 
@@ -157,25 +215,47 @@ public class AiAnalysisService {
             Long analysisId,
             Long userId
     ) {
-        projectAccessChecker.requireMember(projectId, userId);
-
-        AiAnalysis previousAnalysis = getProjectAnalysis(projectId, analysisId);
-        requireAnalysisActionPermission(projectId, userId, previousAnalysis);
-
-        if (previousAnalysis.getAnalysisStatus() != AnalysisStatus.FAILED) {
-            throw GeneralException.of(ErrorCode.AI_ANALYSIS_INVALID_STATUS);
-        }
-
-        AiAnalysis newAnalysis = createAndDispatchAnalysis(
+        projectAccessChecker.requireMemberOrAbove(
                 projectId,
-                userId,
-                previousAnalysis.getPrNumber()
+                userId
         );
 
+        AiAnalysis previousAnalysis =
+                getProjectAnalysis(
+                        projectId,
+                        analysisId
+                );
+
+        requireAnalysisActionPermission(
+                projectId,
+                userId,
+                previousAnalysis
+        );
+
+        if (previousAnalysis.getAnalysisStatus()
+                != AnalysisStatus.FAILED) {
+            throw GeneralException.of(
+                    ErrorCode.AI_ANALYSIS_INVALID_STATUS
+            );
+        }
+
+        AiAnalysis newAnalysis =
+                createAndDispatchAnalysis(
+                        projectId,
+                        userId,
+                        previousAnalysis.getPrNumber()
+                );
+
         return AiAnalysisRetryResponse.builder()
-                .previousAnalysisId(previousAnalysis.getAnalysisId())
-                .newAnalysisId(newAnalysis.getAnalysisId())
-                .analysisStatus(newAnalysis.getAnalysisStatus())
+                .previousAnalysisId(
+                        previousAnalysis.getAnalysisId()
+                )
+                .newAnalysisId(
+                        newAnalysis.getAnalysisId()
+                )
+                .analysisStatus(
+                        newAnalysis.getAnalysisStatus()
+                )
                 .build();
     }
 
@@ -185,18 +265,34 @@ public class AiAnalysisService {
             Long analysisId,
             Long userId
     ) {
-        projectAccessChecker.requireMember(projectId, userId);
+        projectAccessChecker.requireMemberOrAbove(
+                projectId,
+                userId
+        );
 
-        // callback과 동시에 요청되더라도 동일 Row를 잠가 Lost Update를 방지한다.
-        AiAnalysis analysis = getProjectAnalysisForUpdate(projectId, analysisId);
-        requireAnalysisActionPermission(projectId, userId, analysis);
+        AiAnalysis analysis =
+                getProjectAnalysisForUpdate(
+                        projectId,
+                        analysisId
+                );
+
+        requireAnalysisActionPermission(
+                projectId,
+                userId,
+                analysis
+        );
 
         if (!analysis.isCancelable()) {
-            throw GeneralException.of(ErrorCode.AI_ANALYSIS_INVALID_STATUS);
+            throw GeneralException.of(
+                    ErrorCode.AI_ANALYSIS_INVALID_STATUS
+            );
         }
 
         analysis.cancel();
-        return AiAnalysisCancelResponse.from(analysis);
+
+        return AiAnalysisCancelResponse.from(
+                analysis
+        );
     }
 
     private AiAnalysis createAndDispatchAnalysis(
@@ -204,61 +300,100 @@ public class AiAnalysisService {
             Long userId,
             Integer prNumber
     ) {
-        Project project = projectJpaRepository.findById(projectId)
-                .orElseThrow(() -> GeneralException.of(ErrorCode.PROJECT_NOT_FOUND));
+        Project project =
+                projectJpaRepository
+                        .findById(projectId)
+                        .orElseThrow(() ->
+                                GeneralException.of(
+                                        ErrorCode.PROJECT_NOT_FOUND
+                                )
+                        );
 
-        ProjectGithubRepository repository = projectGithubRepositoryJpaRepository
-                .findByProjectId(projectId)
-                .orElseThrow(() -> GeneralException.of(
-                        ErrorCode.PROJECT_REPOSITORY_NOT_CONNECTED
-                ));
+        ProjectGithubRepository repository =
+                projectGithubRepositoryJpaRepository
+                        .findByProjectId(projectId)
+                        .orElseThrow(() ->
+                                GeneralException.of(
+                                        ErrorCode.PROJECT_REPOSITORY_NOT_CONNECTED
+                                )
+                        );
 
-        String accessToken = githubUserAccessTokenProvider.getAccessToken(userId);
+        String accessToken =
+                githubUserAccessTokenProvider
+                        .getAccessToken(userId);
 
-        GithubApiPullRequest pullRequest = githubPullRequestApiClient.getPullRequest(
-                accessToken,
-                repository.getRepositoryFullName(),
-                prNumber
-        );
+        GithubApiPullRequest pullRequest =
+                githubPullRequestApiClient
+                        .getPullRequest(
+                                accessToken,
+                                repository.getRepositoryFullName(),
+                                prNumber
+                        );
 
-        List<GithubApiPullRequestFile> files = githubPullRequestApiClient.listPullRequestFiles(
-                accessToken,
-                repository.getRepositoryFullName(),
-                prNumber
-        );
+        List<GithubApiPullRequestFile> files =
+                githubPullRequestApiClient
+                        .listPullRequestFiles(
+                                accessToken,
+                                repository.getRepositoryFullName(),
+                                prNumber
+                        );
 
-        String headSha = pullRequest.getHead() == null
-                ? null
-                : pullRequest.getHead().getSha();
+        String headSha =
+                pullRequest.getHead() == null
+                        ? null
+                        : pullRequest
+                                .getHead()
+                                .getSha();
 
-        if (headSha == null || headSha.isBlank()) {
-            throw GeneralException.of(ErrorCode.BAD_REQUEST);
+        if (headSha == null
+                || headSha.isBlank()) {
+            throw GeneralException.of(
+                    ErrorCode.BAD_REQUEST
+            );
         }
 
-        AiAnalysis analysis = aiAnalysisRepository.save(
-                AiAnalysis.builder()
-                        .projectId(projectId)
-                        .repositoryId(repository.getRepositoryId())
-                        .requestedBy(userId)
-                        .githubPrId(pullRequest.getId())
-                        .prNumber(pullRequest.getNumber())
-                        .analyzedHeadSha(headSha)
-                        .build()
-        );
+        AiAnalysis analysis =
+                aiAnalysisRepository.save(
+                        AiAnalysis.builder()
+                                .projectId(projectId)
+                                .repositoryId(
+                                        repository.getRepositoryId()
+                                )
+                                .requestedBy(userId)
+                                .githubPrId(
+                                        pullRequest.getId()
+                                )
+                                .prNumber(
+                                        pullRequest.getNumber()
+                                )
+                                .analyzedHeadSha(
+                                        headSha
+                                )
+                                .build()
+                );
 
-        FastApiAnalysisRequestDto fastApiRequest = buildFastApiRequest(
-                project,
-                repository,
-                analysis,
-                pullRequest,
-                files
-        );
+        FastApiAnalysisRequestDto fastApiRequest =
+                buildFastApiRequest(
+                        project,
+                        repository,
+                        analysis,
+                        pullRequest,
+                        files
+                );
 
         try {
-            aiInternalService.requestAnalysis(fastApiRequest);
+            aiInternalService.requestAnalysis(
+                    fastApiRequest
+            );
         } catch (RuntimeException exception) {
-            markDispatchFailed(analysis.getAnalysisId(), exception.getMessage());
-            throw GeneralException.of(ErrorCode.AI_ANALYSIS_SERVER_UNAVAILABLE);
+            markDispatchFailed(
+                    analysis.getAnalysisId(),
+                    exception.getMessage()
+            );
+
+            throw GeneralException.of(
+                    ErrorCode.AI_ANALYSIS_SERVER_UNAVAILABLE
+            );
         }
 
         return analysis;
@@ -271,56 +406,125 @@ public class AiAnalysisService {
             GithubApiPullRequest pullRequest,
             List<GithubApiPullRequestFile> files
     ) {
-        List<FastApiAnalysisRequestDto.FileDto> fileDtos = files.stream()
-                .map(file -> FastApiAnalysisRequestDto.FileDto.builder()
-                        .filePath(file.getFilename())
-                        .changeType(normalizeChangeType(file.getStatus()))
-                        .patch(file.getPatch())
-                        .additions(file.getAdditions())
-                        .deletions(file.getDeletions())
-                        .build())
-                .toList();
+        List<FastApiAnalysisRequestDto.FileDto> fileDtos =
+                files.stream()
+                        .map(file ->
+                                FastApiAnalysisRequestDto
+                                        .FileDto
+                                        .builder()
+                                        .filePath(
+                                                file.getFilename()
+                                        )
+                                        .changeType(
+                                                normalizeChangeType(
+                                                        file.getStatus()
+                                                )
+                                        )
+                                        .patch(
+                                                file.getPatch()
+                                        )
+                                        .additions(
+                                                file.getAdditions()
+                                        )
+                                        .deletions(
+                                                file.getDeletions()
+                                        )
+                                        .build()
+                        )
+                        .toList();
 
         FastApiAnalysisRequestDto.PullRequestDto pullRequestDto =
-                FastApiAnalysisRequestDto.PullRequestDto.builder()
-                        .githubPrId(pullRequest.getId())
-                        .prNumber(pullRequest.getNumber())
-                        .title(pullRequest.getTitle())
-                        .body(pullRequest.getBody())
-                        .headSha(analysis.getAnalyzedHeadSha())
+                FastApiAnalysisRequestDto
+                        .PullRequestDto
+                        .builder()
+                        .githubPrId(
+                                pullRequest.getId()
+                        )
+                        .prNumber(
+                                pullRequest.getNumber()
+                        )
+                        .title(
+                                pullRequest.getTitle()
+                        )
+                        .body(
+                                pullRequest.getBody()
+                        )
+                        .headSha(
+                                analysis.getAnalyzedHeadSha()
+                        )
                         .sourceBranch(
                                 pullRequest.getHead() == null
                                         ? null
-                                        : pullRequest.getHead().getRef()
+                                        : pullRequest
+                                                .getHead()
+                                                .getRef()
                         )
                         .targetBranch(
                                 pullRequest.getBase() == null
                                         ? null
-                                        : pullRequest.getBase().getRef()
+                                        : pullRequest
+                                                .getBase()
+                                                .getRef()
                         )
-                        .files(fileDtos)
+                        .files(
+                                fileDtos
+                        )
                         .build();
 
-        // callbackUrl은 세팅하지 않는다.
-        // 현재 develop의 AiInternalService가 analysisId 기준으로 직접 생성한다.
         return FastApiAnalysisRequestDto.builder()
-                .analysisId(analysis.getAnalysisId())
-                .projectId(project.getProjectId())
-                .repositoryId(repository.getRepositoryId())
-                .repositoryFullName(repository.getRepositoryFullName())
-                .pullRequest(pullRequestDto)
-                .language(normalizeLanguage(project.getDefaultLanguage()))
+                .analysisId(
+                        analysis.getAnalysisId()
+                )
+                .projectId(
+                        project.getProjectId()
+                )
+                .repositoryId(
+                        repository.getRepositoryId()
+                )
+                .repositoryFullName(
+                        repository.getRepositoryFullName()
+                )
+                .pullRequest(
+                        pullRequestDto
+                )
+                .language(
+                        normalizeLanguage(
+                                project.getDefaultLanguage()
+                        )
+                )
                 .build();
     }
 
-    private AiAnalysis getProjectAnalysis(Long projectId, Long analysisId) {
-        return aiAnalysisRepository.findByAnalysisIdAndProjectId(analysisId, projectId)
-                .orElseThrow(() -> GeneralException.of(ErrorCode.AI_ANALYSIS_NOT_FOUND));
+    private AiAnalysis getProjectAnalysis(
+            Long projectId,
+            Long analysisId
+    ) {
+        return aiAnalysisRepository
+                .findByAnalysisIdAndProjectId(
+                        analysisId,
+                        projectId
+                )
+                .orElseThrow(() ->
+                        GeneralException.of(
+                                ErrorCode.AI_ANALYSIS_NOT_FOUND
+                        )
+                );
     }
 
-    private AiAnalysis getProjectAnalysisForUpdate(Long projectId, Long analysisId) {
-        return aiAnalysisRepository.findByAnalysisIdAndProjectIdForUpdate(analysisId, projectId)
-                .orElseThrow(() -> GeneralException.of(ErrorCode.AI_ANALYSIS_NOT_FOUND));
+    private AiAnalysis getProjectAnalysisForUpdate(
+            Long projectId,
+            Long analysisId
+    ) {
+        return aiAnalysisRepository
+                .findByAnalysisIdAndProjectIdForUpdate(
+                        analysisId,
+                        projectId
+                )
+                .orElseThrow(() ->
+                        GeneralException.of(
+                                ErrorCode.AI_ANALYSIS_NOT_FOUND
+                        )
+                );
     }
 
     private void requireAnalysisActionPermission(
@@ -328,76 +532,122 @@ public class AiAnalysisService {
             Long userId,
             AiAnalysis analysis
     ) {
-        if (Objects.equals(analysis.getRequestedBy(), userId)) {
+        if (Objects.equals(
+                analysis.getRequestedBy(),
+                userId
+        )) {
             return;
         }
 
-        ProjectPermissionRole role = projectAccessChecker.getRole(projectId, userId);
+        ProjectPermissionRole role =
+                projectAccessChecker
+                        .getRole(
+                                projectId,
+                                userId
+                        );
+
         if (role != ProjectPermissionRole.OWNER
                 && role != ProjectPermissionRole.ADMIN) {
-            throw GeneralException.of(ErrorCode.AI_ANALYSIS_ACTION_FORBIDDEN);
+            throw GeneralException.of(
+                    ErrorCode.AI_ANALYSIS_ACTION_FORBIDDEN
+            );
         }
     }
 
-    private AnalysisStatus parseAnalysisStatus(String status) {
-        if (status == null || status.isBlank()) {
+    private AnalysisStatus parseAnalysisStatus(
+            String status
+    ) {
+        if (status == null
+                || status.isBlank()) {
             return null;
         }
 
         try {
-            return AnalysisStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            return AnalysisStatus.valueOf(
+                    status
+                            .trim()
+                            .toUpperCase(
+                                    Locale.ROOT
+                            )
+            );
         } catch (IllegalArgumentException exception) {
-            throw GeneralException.of(ErrorCode.BAD_REQUEST);
+            throw GeneralException.of(
+                    ErrorCode.BAD_REQUEST
+            );
         }
     }
 
-    /**
-     * DB의 result_json 문자열을 Notion API 명세의 analysisResult(Object)로 변환한다.
-     *
-     * JsonNode를 그대로 반환하면 Spring Boot 4의 HTTP 직렬화 과정에서
-     * JsonNode의 isArray(), isObject() 등의 메타 속성이 노출될 수 있으므로
-     * 일반 Java Object(Map/List/primitive)로 파싱해 반환한다.
-     */
-    private Object parseResultJson(String resultJson) {
-        if (resultJson == null || resultJson.isBlank()) {
+    private Object parseResultJson(
+            String resultJson
+    ) {
+        if (resultJson == null
+                || resultJson.isBlank()) {
             return null;
         }
 
         try {
-            return objectMapper.readValue(resultJson, Object.class);
+            return objectMapper.readValue(
+                    resultJson,
+                    Object.class
+            );
         } catch (JsonProcessingException exception) {
             log.warn(
                     "AI 분석 result_json 파싱 실패 - 원문 문자열로 반환합니다. error={}",
                     exception.getMessage()
             );
+
             return resultJson;
         }
     }
 
-    private String normalizeLanguage(String language) {
-        if (language == null || language.isBlank()) {
+    private String normalizeLanguage(
+            String language
+    ) {
+        if (language == null
+                || language.isBlank()) {
             return DEFAULT_LANGUAGE;
         }
-        return language.trim().toLowerCase(Locale.ROOT);
+
+        return language
+                .trim()
+                .toLowerCase(
+                        Locale.ROOT
+                );
     }
 
-    private String normalizeChangeType(String githubStatus) {
-        if (githubStatus == null || githubStatus.isBlank()) {
+    private String normalizeChangeType(
+            String githubStatus
+    ) {
+        if (githubStatus == null
+                || githubStatus.isBlank()) {
             return null;
         }
-        return githubStatus.trim().toUpperCase(Locale.ROOT);
+
+        return githubStatus
+                .trim()
+                .toUpperCase(
+                        Locale.ROOT
+                );
     }
 
-    private void markDispatchFailed(Long analysisId, String errorMessage) {
-        aiAnalysisRepository.findById(analysisId).ifPresent(analysis -> {
-            analysis.fail(
-                    null,
-                    null,
-                    errorMessage == null
-                            ? "FastAPI 분석 서버 요청에 실패했습니다."
-                            : errorMessage
-            );
-            aiAnalysisRepository.save(analysis);
-        });
+    private void markDispatchFailed(
+            Long analysisId,
+            String errorMessage
+    ) {
+        aiAnalysisRepository
+                .findById(analysisId)
+                .ifPresent(analysis -> {
+                    analysis.fail(
+                            null,
+                            null,
+                            errorMessage == null
+                                    ? "FastAPI 분석 서버 요청에 실패했습니다."
+                                    : errorMessage
+                    );
+
+                    aiAnalysisRepository.save(
+                            analysis
+                    );
+                });
     }
 }
