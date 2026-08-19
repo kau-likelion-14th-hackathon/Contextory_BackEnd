@@ -3,6 +3,8 @@ package com.kbj.contextory.domain.ai.record.repository;
 import com.kbj.contextory.domain.ai.record.entity.ProjectRecord;
 import com.kbj.contextory.domain.ai.record.entity.ProjectRecordStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -28,6 +30,13 @@ public interface ProjectRecordRepository extends JpaRepository<ProjectRecord, Lo
     Optional<ProjectRecord> findByProjectIdAndAnalysisIdForUpdate(
             @Param("projectId") Long projectId,
             @Param("analysisId") Long analysisId
+    );
+
+
+    Page<ProjectRecord> findAllByProjectIdAndStatusAndMemoryEnabledTrue(
+            Long projectId,
+            ProjectRecordStatus status,
+            Pageable pageable
     );
 
     List<ProjectRecord> findTop20ByProjectIdAndStatusAndMemoryEnabledTrueOrderByApprovedAtDesc(
