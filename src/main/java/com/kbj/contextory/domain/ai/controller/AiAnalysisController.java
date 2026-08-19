@@ -50,13 +50,21 @@ public class AiAnalysisController {
             @PathVariable Long projectId,
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer prNumber,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
         Long userId = Long.valueOf(jwt.getSubject());
         return ApiResponse.onSuccess(
                 SuccessCode.OK,
-                aiAnalysisService.getAnalyses(projectId, userId, status, page, size)
+                aiAnalysisService.getAnalyses(
+                        projectId,
+                        userId,
+                        status,
+                        prNumber,
+                        page,
+                        size
+                )
         );
     }
 

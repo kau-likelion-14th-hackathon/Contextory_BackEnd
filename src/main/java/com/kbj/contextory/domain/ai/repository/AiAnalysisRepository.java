@@ -13,13 +13,19 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface AiAnalysisRepository extends JpaRepository<AiAnalysis, Long> {
+
     Optional<AiAnalysis> findByFastapiJobId(String fastapiJobId);
 
-    Optional<AiAnalysis> findByAnalysisIdAndProjectId(Long analysisId, Long projectId);
+    Optional<AiAnalysis> findByAnalysisIdAndProjectId(
+            Long analysisId,
+            Long projectId
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from AiAnalysis a where a.analysisId = :analysisId")
-    Optional<AiAnalysis> findByIdForUpdate(@Param("analysisId") Long analysisId);
+    Optional<AiAnalysis> findByIdForUpdate(
+            @Param("analysisId") Long analysisId
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
@@ -33,10 +39,26 @@ public interface AiAnalysisRepository extends JpaRepository<AiAnalysis, Long> {
             @Param("projectId") Long projectId
     );
 
-    Page<AiAnalysis> findAllByProjectId(Long projectId, Pageable pageable);
+    Page<AiAnalysis> findAllByProjectId(
+            Long projectId,
+            Pageable pageable
+    );
+
+    Page<AiAnalysis> findAllByProjectIdAndPrNumber(
+            Long projectId,
+            Integer prNumber,
+            Pageable pageable
+    );
 
     Page<AiAnalysis> findAllByProjectIdAndAnalysisStatus(
             Long projectId,
+            AnalysisStatus analysisStatus,
+            Pageable pageable
+    );
+
+    Page<AiAnalysis> findAllByProjectIdAndPrNumberAndAnalysisStatus(
+            Long projectId,
+            Integer prNumber,
             AnalysisStatus analysisStatus,
             Pageable pageable
     );

@@ -85,6 +85,7 @@ public class AiAnalysisService {
             Long projectId,
             Long userId,
             String status,
+            Integer prNumber,
             int page,
             int size
     ) {
@@ -102,19 +103,37 @@ public class AiAnalysisService {
                 )
         );
 
-        Page<AiAnalysis> analysisPage =
-                analysisStatus == null
-                        ? aiAnalysisRepository
-                                .findAllByProjectId(
-                                        projectId,
-                                        pageable
-                                )
-                        : aiAnalysisRepository
-                                .findAllByProjectIdAndAnalysisStatus(
-                                        projectId,
-                                        analysisStatus,
-                                        pageable
-                                );
+        Page<AiAnalysis> analysisPage;
+
+        if (prNumber != null && analysisStatus != null) {
+            analysisPage = aiAnalysisRepository
+                    .findAllByProjectIdAndPrNumberAndAnalysisStatus(
+                            projectId,
+                            prNumber,
+                            analysisStatus,
+                            pageable
+                    );
+        } else if (prNumber != null) {
+            analysisPage = aiAnalysisRepository
+                    .findAllByProjectIdAndPrNumber(
+                            projectId,
+                            prNumber,
+                            pageable
+                    );
+        } else if (analysisStatus != null) {
+            analysisPage = aiAnalysisRepository
+                    .findAllByProjectIdAndAnalysisStatus(
+                            projectId,
+                            analysisStatus,
+                            pageable
+                    );
+        } else {
+            analysisPage = aiAnalysisRepository
+                    .findAllByProjectId(
+                            projectId,
+                            pageable
+                    );
+        }
 
         List<Long> requesterIds =
                 analysisPage.getContent()
