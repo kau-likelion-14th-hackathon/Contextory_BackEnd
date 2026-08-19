@@ -12,6 +12,7 @@ import com.kbj.contextory.domain.ai.dto.response.AiAnalysisRequestResponse;
 import com.kbj.contextory.domain.ai.dto.response.AiAnalysisRetryResponse;
 import com.kbj.contextory.domain.ai.entity.AiAnalysis;
 import com.kbj.contextory.domain.ai.entity.AnalysisStatus;
+import com.kbj.contextory.domain.ai.record.entity.ProjectRecord;
 import com.kbj.contextory.domain.ai.record.repository.ProjectRecordRepository;
 import com.kbj.contextory.domain.ai.repository.AiAnalysisRepository;
 import com.kbj.contextory.github.domain.ProjectGithubRepository;
@@ -208,24 +209,25 @@ public class AiAnalysisService {
 
         // 사람이 수정한 DRAFT 또는 승인본이 있으면
         // AI 원본 result_json 대신 해당 내용을 상세 조회에 보여준다.
-        String effectiveResultJson =
+        ProjectRecord record =
                 projectRecordRepository
                         .findByProjectIdAndAnalysisId(
                                 projectId,
                                 analysisId
                         )
-                        .map(record ->
-                                record.getContentJson()
-                        )
-                        .orElse(
-                                analysis.getResultJson()
-                        );
+                        .orElse(null);
+
+        String effectiveResultJson =
+                record == null
+                        ? analysis.getResultJson()
+                        : record.getContentJson();
 
         return AiAnalysisDetailResponse.of(
                 analysis,
                 parseResultJson(
                         effectiveResultJson
-                )
+                ),
+                record
         );
     }
 
