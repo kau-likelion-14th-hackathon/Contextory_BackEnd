@@ -95,7 +95,10 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of(
-                "https://contextory-front-end.vercel.app"
+                "https://contextory-front-end.vercel.app",
+                "https://api.contextory.kro.kr",
+                "http://localhost:3000",
+                "http://localhost:8080"
         ));
         configuration.setAllowedMethods(
                 Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
